@@ -1,12 +1,12 @@
-# Retro Rewind Launcher
+# Insane Kart Wii Launcher
 
 ![Sample](./assets/sample.png "Sample")
 
-This is an experimental channel for Wii, Wii U and Dolphin to launch and manage the Retro Rewind Mario Kart Wii distribution. \
+This is an experimental channel for Wii, Wii U and Dolphin based on the Retro Rewind Launcher to launch and manage the Insane Kart Wii distribution. \
 The channel aims to provide three main features:
 
-- Stable and performant patching and loading of Retro Rewind.
-- Functionality to update Retro Rewind, and (optionally) automatically check for updates.
+- Stable and performant patching and loading of Insane Kart Wii.
+- Functionality to update Insane Kart Wii, and (optionally) automatically check for updates.
 - Provide basic configuration including language and "My Stuff" (for custom assets).
 
 The channel makes use of a simple text-based interface enclosed in a decorative banner.
