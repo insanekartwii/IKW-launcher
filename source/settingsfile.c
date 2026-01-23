@@ -44,7 +44,7 @@
 #include "settingsfile.h"
 #include "util.h"
 
-#define RRC_SETTINGSFILE_PATH "RetroRewindChannel/.settings"
+#define RRC_SETTINGSFILE_PATH "IKWv3/Settings.ikw"
 #define RRC_SETTINGSFILE_MY_STUFF_KEY "My Stuff"
 #define RRC_SETTINGSFILE_SAVEGAME_KEY "Separate savegame"
 #define RRC_SETTINGSFILE_AUTOUPDATE_KEY "Auto update"
@@ -102,8 +102,8 @@ struct rrc_result rrc_settingsfile_create()
 
 void rrc_settingsfile_init_defaults(struct rrc_settingsfile *settings)
 {
-    settings->my_stuff = RRC_SETTINGSFILE_MY_STUFF_DEFAULT;
-    settings->separate_savegame = RRC_SETTINGSFILE_SEPARATE_SAVEGAME_DEFAULT;
+    settings->my_stuff = RRC_SETTINGSFILE_DEFAULT;
+    settings->separate_savegame = RRC_SETTINGSFILE_DEFAULT;
     settings->auto_update = RRC_SETTINGSFILE_AUTOUPDATE_DEFAULT;
 }
 

@@ -136,7 +136,7 @@ char *rrc_result_strerror(struct rrc_result result)
         }
     }
     case ESOURCE_CORRUPTED_RR_XML:
-        return "Invalid or corrupted RetroRewind6.xml.";
+        return "Invalid or corrupted boot.thf.";
     default:
         return NULL;
     }
@@ -180,7 +180,7 @@ void rrc_result_error_check_error_fatal(struct rrc_result result)
     rrc_con_cursor_seek_to(origin_row + 2, 0);
     printf(RRC_CON_ANSI_FG_BRIGHT_RED "Error: " RRC_CON_ANSI_FG_WHITE "%s\n", rrc_result_strerror(result));
     printf(RRC_CON_ANSI_FG_BRIGHT_CYAN "Additional info: " RRC_CON_ANSI_FG_WHITE "%s\n", result.err->context);
-    printf("\n\nPlease check your installation of Retro Rewind.\nThe launcher will exit in %i seconds.", RRC_RESULT_FATAL_SPLASH_TIME_SEC);
+    printf("\n\nPlease check your installation of Insane Kart Wii.\nThe launcher will exit in %i seconds.", RRC_RESULT_FATAL_SPLASH_TIME_SEC);
 
     rrc_usleep(RRC_RESULT_FATAL_SPLASH_TIME_SEC * 1000 * 1000);
 

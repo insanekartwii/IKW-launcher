@@ -539,7 +539,7 @@ struct rrc_result rrc_update_do_updates(void *xfb, int *count, bool *updates_ins
     int is_large = rrc_update_is_large(&state, &updates_size);
     RRC_ASSERT(is_large >= 0, "failed to get update size");
 
-    if (is_large == 1)
+    /*if (is_large == 1)
     {
         char info_line1[128];
         char info_line2[128];
@@ -559,7 +559,7 @@ struct rrc_result rrc_update_do_updates(void *xfb, int *count, bool *updates_ins
         {
             return rrc_result_success;
         }
-    }
+    }*/
 
     TRY(rrc_update_do_updates_with_state(&state));
 

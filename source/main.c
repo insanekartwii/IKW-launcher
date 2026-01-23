@@ -87,19 +87,19 @@ int main(int argc, char **argv)
 
     errno = 0;
 
-    DIR *dir = opendir("sd:/RetroRewindChannel");
+    DIR *dir = opendir("sd:/IKWv3");
     if (dir != NULL)
     {
         closedir(dir);
     }
     else if (errno == ENOENT)
     {
-        mkdir("sd:/RetroRewindChannel", 0);
+        mkdir("sd:/IKWv3", 0);
     }
     else
     {
         // ???
-        struct rrc_result err = rrc_result_create_error_errno(errno, "Failed to open sd:/RetroRewindChannel");
+        struct rrc_result err = rrc_result_create_error_errno(errno, "Failed to open sd:/IKWv3");
         rrc_result_error_check_error_fatal(err);
     }
 
@@ -109,7 +109,7 @@ int main(int argc, char **argv)
     res = WPAD_Init();
     RRC_ASSERTEQ(res, WPAD_ERR_NONE, "WPAD_Init");
 
-    FILE *afd = fopen("sd:/RetroRewindChannel/accept.txt", "r");
+    FILE *afd = fopen("sd:/IKWv3/accept.txt", "r");
     if (afd == NULL)
     {
         char *lines[] = {
@@ -129,7 +129,7 @@ int main(int argc, char **argv)
             exit(0);
         }
 
-        FILE *afd = fopen("sd:/RetroRewindChannel/accept.txt", "w");
+        FILE *afd = fopen("sd:/IKWv3/accept.txt", "w");
         if (afd == NULL)
         {
             struct rrc_result err = rrc_result_create_error_errno(errno, "Failed to create acceptance file. The SD card may be locked.");

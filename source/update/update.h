@@ -22,8 +22,8 @@
 #include <curl/curl.h>
 #include "../result.h"
 
-#define RRC_UPDATE_LARGE_THRESHOLD (long)(1000 * 1000 * 100) /* 100MB */
-#define RRC_VERSIONFILE "RetroRewind6/version.txt"
+#define RRC_UPDATE_LARGE_THRESHOLD (long)(1000 * 1000 * 1000)
+#define RRC_VERSIONFILE "IKWv3/version.txt"
 
 /* Holds all info related to an update or sequence of updates */
 struct rrc_update_state

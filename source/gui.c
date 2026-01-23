@@ -218,6 +218,7 @@ void rrc_gui_video_fix(char region)
         break;
     case 'E':
     case 'J':
+    case 'K':
         r_rmode_reg = VI_NTSC;
         r_rmode = progressive ? &TVNtsc480Prog : &TVNtsc480IntDf;
     }
@@ -228,10 +229,9 @@ void rrc_gui_video_fix(char region)
     if (r_rmode != 0)
     {
         VIDEO_Configure(r_rmode);
+        VIDEO_SetBlack(true);
+        VIDEO_Flush();
+        VIDEO_WaitVSync();
+        VIDEO_WaitVSync();
     }
-
-    VIDEO_SetBlack(true);
-    VIDEO_Flush();
-    VIDEO_WaitVSync();
-    VIDEO_WaitVSync();
 }

@@ -22,7 +22,7 @@
 
 #include "types.h"
 
-#define RRC_RIIVO_XML_PATH "RetroRewind6/xml/RetroRewind6.xml"
+#define RRC_RIIVO_XML_PATH "IKWv3/Binaries/boot.thfs"
 
 enum rrc_riivo_disc_replacement_type
 {
