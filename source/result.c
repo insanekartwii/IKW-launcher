@@ -136,7 +136,7 @@ char *rrc_result_strerror(struct rrc_result result)
         }
     }
     case ESOURCE_CORRUPTED_RR_XML:
-        return "Invalid or corrupted boot.thf.";
+        return "Invalid or corrupted boot.thfs.";
     default:
         return NULL;
     }

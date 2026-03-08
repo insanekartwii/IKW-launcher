@@ -472,8 +472,7 @@ enum rrc_settings_result rrc_settings_display(void *xfb, struct rrc_settingsfile
                     char *lines[] = {
                         "Hey!",
                         "",
-                        "We didn't make this yet.",
-                        "https://github.com/Retro-Rewind-Team/RR-Launcher/issues/29"};
+                        "We didn't make this yet."};
 
                     rrc_prompt_1_option(xfb, lines, 4, "Sorry");
                     strncpy(status_message, RRC_CON_ANSI_FG_BRIGHT_MAGENTA "Oops" RRC_CON_ANSI_CLR, sizeof(status_message));

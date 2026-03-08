@@ -118,12 +118,12 @@ int main(int argc, char **argv)
             "",
             "By continuing, you accept that there is NO WARRANTY",
             "associated with this software, express or implied.",
+            "This also applies to Insane Kart Wii itself.",
             "",
-            "This includes crashes, false-positive online bans,",
-            "incorrect or corrupted assets, corruption of installation,",
-            "loss of data, or potential system inoperability."};
+            "Use this software at your own risk, we are not responsible",
+            "for any damage that may occur while or after playing."};
 
-        enum rrc_prompt_result result = rrc_prompt_2_options(xfb, lines, 9, "I Accept", "Close Launcher", RRC_PROMPT_RESULT_OK, RRC_PROMPT_RESULT_CANCEL);
+        enum rrc_prompt_result result = rrc_prompt_2_options(xfb, lines, 9, "I Accept", "Exit", RRC_PROMPT_RESULT_OK, RRC_PROMPT_RESULT_CANCEL);
         if (result == RRC_PROMPT_RESULT_CANCEL)
         {
             exit(0);
@@ -234,11 +234,11 @@ int main(int argc, char **argv)
         rrc_result_error_check_error_normal(update_res, xfb);
     }
 
-#define INTERRUPT_TIME 3000000 /* 3 seconds */
+#define INTERRUPT_TIME 10000000 /* 10 seconds */
     rrc_con_clear(true);
 
     rrc_con_print_text_centered(_RRC_ACTION_ROW, "Press A to launch, or press B to load settings.");
-    rrc_con_print_text_centered(_RRC_ACTION_ROW + 1, "Auto-launching in 3 seconds...");
+    rrc_con_print_text_centered(_RRC_ACTION_ROW + 1, "Auto-launching in 10 seconds...");
 
     for (int i = 0; i < INTERRUPT_TIME / RRC_WPAD_LOOP_TIMEOUT; i++)
     {
