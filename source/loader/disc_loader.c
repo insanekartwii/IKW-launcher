@@ -103,7 +103,7 @@ check_cover_register:
     if (res != RRC_DI_LIBDI_EIO)
     {
         /* spin up the drive */
-        rrc_dbg_printf("failed to read disk_id: attempting drive reset\n");
+        rrc_dbg_printf("Drive is not spinning yet. Starting disc...\n");
         RRC_ASSERTEQ(rrc_di_reset(), RRC_DI_LIBDI_OK, "rrc_di_reset");
         res = rrc_di_get_disk_id(&did);
         RRC_ASSERTEQ(res, RRC_DI_LIBDI_OK, "rrc_di_get_disk_id (could not initialise drive)");
@@ -111,9 +111,9 @@ check_cover_register:
 
     /* this excludes region identifier */
 #define DISKID_MKW_ID "RMC"
-    if (memcmp(did.game_id, DISKID_MKW_ID, strlen(DISKID_MKW_ID)))
+#define DISKID_KIOSK_DEMO "DAB"
+    if (memcmp(did.game_id, DISKID_MKW_ID, strlen(DISKID_MKW_ID)) && memcmp(did.game_id, DISKID_KIOSK_DEMO, strlen(DISKID_KIOSK_DEMO)))
         goto missing_mkwii_alert;
-
     char gameId[16];
     snprintf(
         gameId, sizeof(gameId), "%c%c%c%cD%02x", did.game_id[0],
@@ -121,7 +121,19 @@ check_cover_register:
 
     rrc_dbg_printf("Game ID/Rev: %s\n", gameId);
     memcpy((u32 *)0x80000000, &did, sizeof(did));
-    *region = did.game_id[3];
+    
+    //Check full game ID due to the Kiosk Demo having the same Region Letter as NTSC-J
+    char full_game_id[4];
+    memcpy(full_game_id, did.game_id, 4);
+    
+    if (memcmp(full_game_id, "DABJ01", 4) == 0)
+    {
+        *region = 'D';  // Spoof Kiosk Demo as NTSC-D
+    }
+    else
+    {
+        *region = did.game_id[3];  // Retail MKW
+    }
 
     return RRC_RES_OK;
 }

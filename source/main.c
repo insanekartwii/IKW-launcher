@@ -60,12 +60,12 @@ int main(int argc, char **argv)
     // There are bugs in pulsar with USB/HIDv5 if the IOS version is 59, which HBC commonly boots programs with.
     // Use a version used by the game that is known to work with pulsar.
     // FIXME: try to use the disk's IOS version?
-    RRC_ASSERTEQ(IOS_ReloadIOS(37), 0, "Failed to reload IOS");
+    RRC_ASSERTEQ(IOS_ReloadIOS(249), 0, "Failed to reload IOS");
 
     rrc_shutdown_register_callbacks();
 
     // We reserve ~1MB of MEM1 upfront for the runtime-ext dol.
-    u32 mem1_hi = 0x81744260;
+    u32 mem1_hi = RRC_RUNTIME_EXT_DOL_SAFE_START;
     u32 mem2_hi = *(u32 *)0x80003128;
 
     s64 systime_start = gettime();
@@ -92,10 +92,6 @@ int main(int argc, char **argv)
     {
         closedir(dir);
     }
-    else if (errno == ENOENT)
-    {
-        mkdir("sd:/IKWv3", 0);
-    }
     else
     {
         // ???
@@ -108,6 +104,7 @@ int main(int argc, char **argv)
     RRC_ASSERTEQ(res, 1, "PAD_Init");
     res = WPAD_Init();
     RRC_ASSERTEQ(res, WPAD_ERR_NONE, "WPAD_Init");
+    bool first_open = false;
 
     FILE *afd = fopen("sd:/IKWv3/accept.txt", "r");
     if (afd == NULL)
@@ -123,22 +120,29 @@ int main(int argc, char **argv)
             "Use this software at your own risk, we are not responsible",
             "for any damage that may occur while or after playing."};
 
-        enum rrc_prompt_result result = rrc_prompt_2_options(xfb, lines, 9, "I Accept", "Exit", RRC_PROMPT_RESULT_OK, RRC_PROMPT_RESULT_CANCEL);
+        enum rrc_prompt_result result = rrc_prompt_2_options(xfb, lines, 11, "I Accept", "Exit", RRC_PROMPT_RESULT_OK, RRC_PROMPT_RESULT_CANCEL);
         if (result == RRC_PROMPT_RESULT_CANCEL)
         {
             exit(0);
         }
 
+        if(result == RRC_PROMPT_RESULT_ERROR) {
+            struct rrc_result err = rrc_result_create_error_errno(EIO, "Failed to display prompt");
+            rrc_result_error_check_error_normal(err, xfb);
+        }
+
         FILE *afd = fopen("sd:/IKWv3/accept.txt", "w");
         if (afd == NULL)
         {
-            struct rrc_result err = rrc_result_create_error_errno(errno, "Failed to create acceptance file. The SD card may be locked.");
+            struct rrc_result err = rrc_result_create_error_errno(errno, "Failed to create acceptance file. The SD card may be write locked.");
             rrc_result_error_check_error_normal(err, xfb);
         }
         else
         {
             fclose(afd);
         }
+
+        first_open = true;
     }
     else
     {
@@ -200,9 +204,8 @@ int main(int argc, char **argv)
             "It may be possible to fix this by recreating the file.",
             "Recreate now?",
         };
-        rrc_result_free(settingsfile_res);
-
         enum rrc_prompt_result prompt_res = rrc_prompt_yes_no(xfb, lines, 4);
+        rrc_result_free(settingsfile_res);
 
         if (prompt_res == RRC_PROMPT_RESULT_YES)
         {
@@ -237,8 +240,10 @@ int main(int argc, char **argv)
 #define INTERRUPT_TIME 10000000 /* 10 seconds */
     rrc_con_clear(true);
 
-    rrc_con_print_text_centered(_RRC_ACTION_ROW, "Press A to launch, or press B to load settings.");
-    rrc_con_print_text_centered(_RRC_ACTION_ROW + 1, "Auto-launching in 10 seconds...");
+    if(!first_open) {
+        rrc_con_print_text_centered(_RRC_ACTION_ROW, "Press A to launch, or press B to load settings.");
+        rrc_con_print_text_centered(_RRC_ACTION_ROW + 1, "Auto-launching in 10 seconds...");
+    }
 
     for (int i = 0; i < INTERRUPT_TIME / RRC_WPAD_LOOP_TIMEOUT; i++)
     {
@@ -254,7 +259,7 @@ int main(int argc, char **argv)
         {
             break;
         }
-        else if (rrc_pad_b_pressed(pad))
+        else if (rrc_pad_b_pressed(pad) || first_open)
         {
             struct rrc_result r;
             int out = rrc_settings_display(xfb, &stored_settings, &r);
@@ -339,10 +344,6 @@ interrupt_loop_end:
     s64 systime_end = gettime();
     rrc_dbg_printf("time taken: %.3f seconds\n", ((f64)diff_msec(systime_start, systime_end)) / 1000.0);
 
-    if (mem2_hi > 0x93400000)
-    {
-        mem2_hi = 0x93400000;
-    }
     rrc_loader_load(dol, &stored_settings, bi2, mem1_hi, mem2_hi, region);
 
     return 0;

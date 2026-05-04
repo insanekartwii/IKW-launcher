@@ -38,7 +38,9 @@ enum rrc_dvd_region
     // NTSC Japan
     RRC_DVD_REGION_J = 2,
     //NTSC Korea
-    RRC_DVD_REGION_K = 3
+    RRC_DVD_REGION_K = 3,
+    //Kiosk Demo JP
+    RRC_DVD_REGION_D = 4
 };
 
 enum rrc_dvd_function
@@ -51,8 +53,8 @@ enum rrc_dvd_function
 };
 
 // This is queried to get the correct DVD function addresses for the region.
-// TODO: NTSC-K support?
-const u32 rrc_dvdf_addrs[4][5] =
+
+const u32 rrc_dvdf_addrs[5][5] =
     {
         // 80000000-*: +0x0
         [RRC_DVD_REGION_P] =
@@ -84,12 +86,19 @@ const u32 rrc_dvdf_addrs[4][5] =
                 [RRC_DVDF_FAST_OPEN] = 0x8015e2cc,
                 [RRC_DVDF_OPEN] = 0x8015e334,
                 [RRC_DVDF_READ_PRIO] = 0x8015e8ac,
-                [RRC_DVDF_CLOSE] = 0x8015e5e0}};
+                [RRC_DVDF_CLOSE] = 0x8015e5e0},
+        [RRC_DVD_REGION_D] =
+            {
+                [RRC_DVDF_CONVERT_PATH_TO_ENTRYNUM] = 0x8015DD1C,
+                [RRC_DVDF_FAST_OPEN] = 0x8015E024,
+                [RRC_DVDF_OPEN] = 0x8015E08C,
+                [RRC_DVDF_READ_PRIO] = 0x8015E604,
+                [RRC_DVDF_CLOSE] = 0x8015E338}};
 
 // These instructions store the address of the original DVD function in a specific register
 // and then jump to it. The only difference in each set is the address being jumped to (i.e., the second instruction)
 // We include all 4 for every case for completeness and extensibility, if ever needed.
-const u32 rrc_dvdf_backjmp_instrs[4][5][4] = {
+const u32 rrc_dvdf_backjmp_instrs[5][5][4] = {
     [RRC_DVD_REGION_P] =
         {
             [RRC_DVDF_CONVERT_PATH_TO_ENTRYNUM] = {0x3d208015, 0x6129df5c, 0x7d2903a6, 0x4e800420},
@@ -117,7 +126,14 @@ const u32 rrc_dvdf_backjmp_instrs[4][5][4] = {
             [RRC_DVDF_FAST_OPEN] = {0x3d208015, 0x6129e2dc, 0x7d2903a6, 0x4e800420},
             [RRC_DVDF_OPEN] = {0x3d208015, 0x6129e344, 0x7d2903a6, 0x4e800420},
             [RRC_DVDF_READ_PRIO] = {0x3d208015, 0x6129e8bc, 0x7d2903a6, 0x4e800420},
-            [RRC_DVDF_CLOSE] = {0x3d208015, 0x6129e5f0, 0x7d2903a6, 0x4e800420}}};
+            [RRC_DVDF_CLOSE] = {0x3d208015, 0x6129e5f0, 0x7d2903a6, 0x4e800420}},
+    [RRC_DVD_REGION_D] =
+        {
+            [RRC_DVDF_CONVERT_PATH_TO_ENTRYNUM] = {0x3d208015, 0x6129DD2C, 0x7d2903a6, 0x4e800420},
+            [RRC_DVDF_FAST_OPEN] = {0x3d208015, 0x6129E034, 0x7d2903a6, 0x4e800420},
+            [RRC_DVDF_OPEN] = {0x3d208015, 0x6129E09C, 0x7d2903a6, 0x4e800420},
+            [RRC_DVDF_READ_PRIO] = {0x3d208015, 0x6129E614, 0x7d2903a6, 0x4e800420},
+            [RRC_DVDF_CLOSE] = {0x3d208015, 0x6129E348, 0x7d2903a6, 0x4e800420}}};
 
 // We need to be able to jump to the custom functions. 
 // These jump to the approprate address for each custom function.
@@ -141,6 +157,8 @@ enum rrc_dvd_region rrc_region_char_to_region(char region)
         return RRC_DVD_REGION_J;
     case 'K':
         return RRC_DVD_REGION_K;
+    case 'D':
+        return RRC_DVD_REGION_D;
     default:
         return -1;
     }

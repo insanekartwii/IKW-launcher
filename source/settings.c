@@ -456,7 +456,10 @@ enum rrc_settings_result rrc_settings_display(void *xfb, struct rrc_settingsfile
                         }
                         else if (updated)
                         {
-                            snprintf(status_message, sizeof(status_message), RRC_CON_ANSI_FG_BRIGHT_GREEN "%d updates installed." RRC_CON_ANSI_CLR, update_count);
+                            snprintf(status_message, sizeof(status_message), "%d updates were installed.", update_count);
+                            char *lines[] = { status_message, "", "The channel will now exit to apply the updates."};
+                            rrc_prompt_1_option(xfb, lines, 3, "OK");
+                            goto exit;
                         }
 
                         status_message_row = 3;
@@ -472,7 +475,8 @@ enum rrc_settings_result rrc_settings_display(void *xfb, struct rrc_settingsfile
                     char *lines[] = {
                         "Hey!",
                         "",
-                        "We didn't make this yet."};
+                        "We didn't make this yet.",
+                        "https://github.com/Retro-Rewind-Team/RR-Launcher/issues/29"};
 
                     rrc_prompt_1_option(xfb, lines, 4, "Sorry");
                     strncpy(status_message, RRC_CON_ANSI_FG_BRIGHT_MAGENTA "Oops" RRC_CON_ANSI_CLR, sizeof(status_message));
