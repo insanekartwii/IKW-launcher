@@ -1,6 +1,6 @@
 # Insane Kart Wii Launcher
 
-![Sample](./assets/sample.png "Sample")
+![Sample](./ikw-launcher/assets/sample.png "Sample")
 
 This is an experimental channel for Wii, Wii U and Dolphin based on the Retro Rewind Launcher to launch and manage the Insane Kart Wii distribution. \
 The channel aims to provide three main features:
