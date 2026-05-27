@@ -147,6 +147,9 @@ const char **rrc_riivo_patch_loader_get_entries_in_replaced_folder(u32 *arena, c
     struct dirent *entry;
     while ((entry = readdir(dir)) != NULL)
     {
+        if (entry->d_name[0] == '.' && entry->d_name[1] == '_')
+            continue;
+            
         if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0 || entry->d_type != DT_REG)
             continue;
 
@@ -165,6 +168,9 @@ const char **rrc_riivo_patch_loader_get_entries_in_replaced_folder(u32 *arena, c
     int i = 0;
     while ((entry = readdir(dir)) != NULL)
     {
+        if (entry->d_name[0] == '.' && entry->d_name[1] == '_')
+            continue;
+            
         if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0 || entry->d_type != DT_REG)
             continue;
 
