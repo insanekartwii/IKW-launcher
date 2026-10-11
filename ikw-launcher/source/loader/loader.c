@@ -209,6 +209,8 @@ void rrc_loader_load(struct rrc_dol *dol, struct rrc_settingsfile *settings, voi
     u8 bitflags = 0;
     if (settings->separate_savegame)
         bitflags |= RRC_BITFLAGS_SAVEGAME;
+    if (settings->sd_access_led)
+        bitflags |= RRC_BITFLAGS_SD_ACCESS_LED;
     switch (settings->my_stuff)
     {
     case RRC_SETTINGSFILE_MY_STUFF_CTGP:

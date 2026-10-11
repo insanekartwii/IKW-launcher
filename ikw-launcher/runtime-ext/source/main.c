@@ -27,6 +27,7 @@
 #include <riivo.h>
 #include <dol.h>
 #include "util.h"
+#include "sd.h"
 #include "dvd.h"
 #include "trampoline.h"
 #include <errno.h>
@@ -65,7 +66,7 @@ int SD_errno()
 }
 
 __attribute__((section(".sd_vtable"))) static struct sd_vtable __sd_vtable = {
-    .open = SD_open,
+    .open = rrc_rt_sd_open,
     .close = SD_close,
     .read = SD_read,
     .write = SD_write,

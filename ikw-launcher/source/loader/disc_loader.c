@@ -99,15 +99,15 @@ check_cover_register:
     /* we need to check we actually inserted mario kart wii */
     struct rrc_di_disk_id did;
     res = rrc_di_get_disk_id(&did);
-    /* likely drive wasnt spun up */
-    if (res != RRC_DI_LIBDI_EIO)
+    /* libogc returns DI_ReadDiscID errors as negative errno values (for example, -EIO). */
+    if (res == -RRC_DI_LIBDI_EIO)
     {
         /* spin up the drive */
         rrc_dbg_printf("Disc drive is not running yet. Starting disc drive...\n");
         RRC_ASSERTEQ(rrc_di_reset(), RRC_DI_LIBDI_OK, "rrc_di_reset");
         res = rrc_di_get_disk_id(&did);
-        RRC_ASSERTEQ(res, RRC_DI_LIBDI_OK, "rrc_di_get_disk_id (could not initialise drive)");
     }
+    RRC_ASSERTEQ(res, RRC_DI_LIBDI_OK, "rrc_di_get_disk_id (could not initialise drive)");
 
     /* this excludes region identifier */
 #define DISKID_MKW_ID "RMC"

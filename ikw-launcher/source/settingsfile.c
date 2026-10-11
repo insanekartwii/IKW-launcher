@@ -48,6 +48,7 @@
 #define RRC_SETTINGSFILE_MY_STUFF_KEY "My Stuff"
 #define RRC_SETTINGSFILE_SAVEGAME_KEY "Separate savegame"
 #define RRC_SETTINGSFILE_AUTOUPDATE_KEY "Auto update"
+#define RRC_SETTINGSFILE_SD_ACCESS_LED_KEY "SD access LED"
 #define RRC_SETTINGSFILE_MAGIC 1920234103
 #define RRC_SETTINGSFILE_VERSION 0
 
@@ -105,6 +106,7 @@ void rrc_settingsfile_init_defaults(struct rrc_settingsfile *settings)
     settings->my_stuff = RRC_SETTINGSFILE_DEFAULT;
     settings->separate_savegame = RRC_SETTINGSFILE_DEFAULT;
     settings->auto_update = RRC_SETTINGSFILE_AUTOUPDATE_DEFAULT;
+    settings->sd_access_led = RRC_SETTINGSFILE_SD_ACCESS_LED_DEFAULT;
 }
 
 struct rrc_result rrc_settingsfile_parse(struct rrc_settingsfile *settings)
@@ -189,6 +191,10 @@ struct rrc_result rrc_settingsfile_parse(struct rrc_settingsfile *settings)
         {
             settings->auto_update = value;
         }
+        else if (strcmp(key, RRC_SETTINGSFILE_SD_ACCESS_LED_KEY) == 0)
+        {
+            settings->sd_access_led = value;
+        }
     }
 
     fclose(file);
@@ -233,11 +239,12 @@ struct rrc_result rrc_settingsfile_store(struct rrc_settingsfile *settings)
         return rrc_result_create_error_errno(errno, "Failed to open settingsfile");
     }
 
-    rrc_settingsfile_write_header(file, 3);
+    rrc_settingsfile_write_header(file, 4);
 
     TRY(rrc_settingsfile_set_option(file, RRC_SETTINGSFILE_MY_STUFF_KEY, settings->my_stuff));
     TRY(rrc_settingsfile_set_option(file, RRC_SETTINGSFILE_SAVEGAME_KEY, settings->separate_savegame));
     TRY(rrc_settingsfile_set_option(file, RRC_SETTINGSFILE_AUTOUPDATE_KEY, settings->auto_update));
+    TRY(rrc_settingsfile_set_option(file, RRC_SETTINGSFILE_SD_ACCESS_LED_KEY, settings->sd_access_led));
 
     fclose(file);
     return rrc_result_success;

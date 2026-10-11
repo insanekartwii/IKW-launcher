@@ -32,7 +32,7 @@ u32 align_up(u32 num, u32 align_as)
     return (num + align_as - 1) & -align_as;
 }
 
-struct rrc_result sd_get_free_space(unsigned long *res)
+struct rrc_result sd_get_space(u64 *free_space, u64 *total_space)
 {
     struct statvfs sbx;
     int rr = statvfs("/dev/sd", &sbx);
@@ -41,7 +41,14 @@ struct rrc_result sd_get_free_space(unsigned long *res)
         return rrc_result_create_error_errno(errno, "Failed to get free space on SD card");
     }
 
-    *res = sbx.f_bavail * sbx.f_frsize;
+    if (free_space != NULL)
+    {
+        *free_space = (u64)sbx.f_bavail * (u64)sbx.f_frsize;
+    }
+    if (total_space != NULL)
+    {
+        *total_space = (u64)sbx.f_blocks * (u64)sbx.f_frsize;
+    }
     return rrc_result_success;
 }
 

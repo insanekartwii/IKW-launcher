@@ -119,7 +119,7 @@ static inline struct tm *localtime(const time_t *timer) {
     date.tm_hour = ct.tm_hour;
     date.tm_mday = ct.tm_mday;
     date.tm_mon = ct.tm_mon;
-    date.tm_year = ct.tm_year;
+    date.tm_year = ct.tm_year - 1900;
     date.tm_wday = ct.tm_wday;
     date.tm_yday = ct.tm_yday;
     date.tm_isdst = 0;
@@ -136,7 +136,7 @@ static inline struct tm *localtime_r(const time_t *timer, struct tm *date) {
     date->tm_hour = ct.tm_hour;
     date->tm_mday = ct.tm_mday;
     date->tm_mon = ct.tm_mon;
-    date->tm_year = ct.tm_year;
+    date->tm_year = ct.tm_year - 1900;
     date->tm_wday = ct.tm_wday;
     date->tm_yday = ct.tm_yday;
     date->tm_isdst = 0;

@@ -239,17 +239,7 @@ static bool rte_dvd_resolve_my_stuff_path_to_entry_num(const char *path, s32 *en
         snprintf(my_stuff_path, sizeof(my_stuff_path), "/ctgpr/My Stuff/%s", filename);
     }
 
-    bool cached_file_exists = false;
-    for (int i = 0; i < my_stuff_replacement->folder_contents_count; i++)
-    {
-        if (strcicmp(my_stuff_replacement->folder_contents[i], filename) == 0)
-        {
-            cached_file_exists = true;
-            break;
-        }
-    }
-
-    if (cached_file_exists)
+    if (rrc_rt_sd_file_exists(my_stuff_path))
     {
         RTE_DBG("Found My Stuff replacement for %s (sd path='%s')\n", filename, my_stuff_path);
         *entry_num = rte_dvd_path_to_entrynum(my_stuff_path);
@@ -378,36 +368,15 @@ static bool rte_dvd_resolve_path_to_entry_num(const char *filename, s32 *entry_n
 
                 RTE_DBG("Checking for folder replacement path '%s' (external_path='%s', filename='%s', disc_path='%s')\n", new_path, external_path, filename, disc_path);
 
-                // `path_ptr` (and `new_path_filename`) now points right after the common prefix (so usually the filename),
-                // which we will use to check against the folder contents.
-                // But first, there might be a `/` here still for e.g. `disc=/b requested=/b/c`:
-                // new_path_filename` will point at `/c` (differ_index=2), but we only want `c`, so skip it.
-                char *new_path_filename = path_ptr;
-                if (*new_path_filename == '/')
+                if (rrc_rt_sd_file_exists(new_path))
                 {
-                    new_path_filename++;
-                }
-
-                bool cached_file_exists = false;
-                for (int i = 0; i < replacement->folder_contents_count; i++)
-                {
-                    if (strcicmp(replacement->folder_contents[i], new_path_filename) == 0)
-                    {
-                        RTE_DBG("Found a cached match for the filename in the folder contents!\n");
-                        cached_file_exists = true;
-                        break;
-                    }
-                }
-
-                if (cached_file_exists)
-                {
-                    RTE_DBG("Found a folder replacement! %d (%s %s %s %s) (cached=%s)\n", i, disc_path, external_path, filename, new_path, cached_file_exists ? "true" : "false");
+                    RTE_DBG("Found a folder replacement! %d (%s %s %s %s)\n", i, disc_path, external_path, filename, new_path);
                     *entry_num = rte_dvd_path_to_entrynum(new_path);
                     return true;
                 }
                 else
                 {
-                    RTE_DBG("NOTE: %s/%s not applied because it doesn't exist.\n", external_path, new_path_filename);
+                    RTE_DBG("NOTE: %s not applied because it doesn't exist.\n", new_path);
                 }
             }
 
@@ -440,7 +409,7 @@ static void rte_dvd_open_entry_num(s32 entry_num, FileInfo *file_info)
     {
         struct rte_open_file *file = rte_dvd_alloc_open_file();
 
-        int fd = SD_open(&file->file_struct, etp->path, O_RDONLY);
+        int fd = rrc_rt_sd_open(&file->file_struct, etp->path, O_RDONLY);
         RTE_DBG("Open path '%s', fd = %d\n", etp->path, fd);
 
         if (fd == -1)
@@ -556,7 +525,10 @@ custom_read_prio_impl(FileInfo *file_info, void *buffer, s32 length, s32 offset,
             RTE_FATAL("ReadPrio: file is already closed!\n");
         }
 
-        if (SD_seek(etp->file.sd_fd, offset, 0) == -1)
+        // FAT_seek walks the FAT chain even when the file is already at this
+        // offset. Avoid that work for consecutive reads.
+        if (etp->file.opened_file->file_struct.currentPosition != (u32)offset &&
+            SD_seek(etp->file.sd_fd, offset, 0) == -1)
         {
             RTE_FATAL("ReadPrio: Failed to seek (%d)\n", errno);
         }

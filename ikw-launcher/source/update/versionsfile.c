@@ -27,7 +27,7 @@
 #include "versionsfile.h"
 
 #define _RRC_VERSIONSFILE_URL "http://ikw.mwk.li:80/launcher/version.txt"
-#define _RRC_VERSIONS_FILE_REMOVED_URL "http://ikw.mwk.li/launcher/delfiles.txt"
+#define _RRC_VERSIONS_FILE_REMOVED_URL "http://ikw.mwk.li:80/launcher/delfiles.txt"
 // max array size
 #define _RRC_SPLIT_LIM 4096
 

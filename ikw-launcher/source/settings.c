@@ -78,10 +78,9 @@ static char *changes_not_saved_status = RRC_CON_ANSI_BG_BRIGHT_RED "Error saving
 static char *my_stuff_label = "My Stuff";
 static char *savegame_label = "Separate savegame";
 static char *autoupdate_label = "Automatic updates";
+static char *sd_access_led_label = "SD access LED";
 
 static char *perform_updates_label = "Perform updates";
-
-static char *manage_channel_installation_label = "Manage channel installation";
 
 static char *exit_label = "Exit Channel";
 
@@ -175,6 +174,8 @@ enum rrc_settings_result rrc_settings_display(void *xfb, struct rrc_settingsfile
     int my_stuff_options_count, savegame_options_count;
     const char *autoupdate_options[] = {"Disabled", "Enabled"};
     int autoupdate_option_count = sizeof(autoupdate_options) / sizeof(char *);
+    const char *sd_access_led_options[] = {"Disabled", "Enabled"};
+    int sd_access_led_option_count = sizeof(sd_access_led_options) / sizeof(char *);
 
     struct rrc_result r;
     r = xml_find_option_choices(xml_options, xml_top, "My Stuff", &my_stuff_options, &my_stuff_options_count, &stored_settings->my_stuff);
@@ -197,7 +198,6 @@ enum rrc_settings_result rrc_settings_display(void *xfb, struct rrc_settingsfile
     struct settings_entry entries[] = {
         {.type = ENTRY_TYPE_BUTTON, .label = launch_label},
         {.type = ENTRY_TYPE_BUTTON, .label = perform_updates_label, .margin_top = 1},
-        {.type = ENTRY_TYPE_BUTTON, .label = manage_channel_installation_label, .margin_top = 1},
         {.type = ENTRY_TYPE_SELECT,
          .label = my_stuff_label,
          .options = my_stuff_options,
@@ -217,6 +217,12 @@ enum rrc_settings_result rrc_settings_display(void *xfb, struct rrc_settingsfile
          .selected_option = &stored_settings->auto_update,
          .initial_selected_option = stored_settings->auto_update,
          .option_count = autoupdate_option_count},
+        {.type = ENTRY_TYPE_SELECT,
+         .label = sd_access_led_label,
+         .options = sd_access_led_options,
+         .selected_option = &stored_settings->sd_access_led,
+         .initial_selected_option = stored_settings->sd_access_led,
+         .option_count = sd_access_led_option_count},
 
         {.type = ENTRY_TYPE_BUTTON, .label = save_label, .margin_top = 1},
 
@@ -467,21 +473,6 @@ enum rrc_settings_result rrc_settings_display(void *xfb, struct rrc_settingsfile
                     }
 
                     rrc_con_clear(true);
-
-                    break;
-                }
-                else if (entry->label == manage_channel_installation_label)
-                {
-                    char *lines[] = {
-                        "Hey!",
-                        "",
-                        "We didn't make this yet.",
-                        "https://github.com/Retro-Rewind-Team/RR-Launcher/issues/29"};
-
-                    rrc_prompt_1_option(xfb, lines, 4, "Sorry");
-                    strncpy(status_message, RRC_CON_ANSI_FG_BRIGHT_MAGENTA "Oops" RRC_CON_ANSI_CLR, sizeof(status_message));
-                    status_message_row = 5;
-                    status_message_col = strlen(cursor_icon) + strlen(manage_channel_installation_label) + 3;
 
                     break;
                 }

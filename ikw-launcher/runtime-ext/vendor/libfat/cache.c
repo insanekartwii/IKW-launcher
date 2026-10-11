@@ -46,7 +46,8 @@
 
 #define CACHE_FREE UINT_MAX
 
-#define SECTORS_PER_PAGE 8
+//Change this if it causes crashes or instability
+#define SECTORS_PER_PAGE 64
 
 CACHE* _FAT_cache_constructor (uint8_t *cacheSpace, size_t cacheSize, const DISC_INTERFACE* discInterface, sec_t endOfPartition, unsigned int bytesPerSector) {
 	CACHE* cache;

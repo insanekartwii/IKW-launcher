@@ -31,6 +31,7 @@
 int rrc_con_progress_percent = 0;
 char *rrc_con_current_action;
 struct rrc_version cached_version = {-1, -1, -1};
+static bool sd_initialized = false;
 
 int rrc_con_get_cols()
 {
@@ -68,6 +69,11 @@ void rrc_con_update(char *action, int progress_percent)
     rrc_con_print_state();
 }
 
+void rrc_con_set_sd_initialized(bool initialized)
+{
+    sd_initialized = initialized;
+}
+
 void rrc_con_cursor_seek_to_row_centered(int row, int text_len)
 {
 
@@ -89,6 +95,11 @@ int rrc_con_centered_text_start_column(char *text)
 
 void rrc_con_display_version()
 {
+    if (!sd_initialized)
+    {
+        return;
+    }
+
     if (cached_version.major == -1)
     {
         struct rrc_result version_result = rrc_update_get_current_version(&cached_version);
@@ -96,9 +107,31 @@ void rrc_con_display_version()
     }
 
     char vertext[32];
-    snprintf(vertext, 32, "Version: %i.%i.%i", cached_version.major, cached_version.minor, cached_version.patch);
+    snprintf(vertext, 32, "Version %i.%i.%i", cached_version.major, cached_version.minor, cached_version.patch);
     rrc_con_cursor_seek_to(rrc_con_get_rows() - 2, rrc_con_get_cols() - strlen(vertext));
     printf("%s", vertext);
+
+    char storage_text[64];
+    u64 sd_free;
+    u64 sd_total;
+    struct rrc_result storage_result = sd_get_space(&sd_free, &sd_total);
+    if (rrc_result_is_error(storage_result))
+    {
+        snprintf(storage_text, sizeof(storage_text), "Unable to check SD space");
+        rrc_result_free(storage_result);
+    }
+    else
+    {
+        snprintf(storage_text, sizeof(storage_text), "%llu.%lluGB free / %llu.%lluGB total",
+                 sd_free / 1000000000ULL,
+                 (sd_free % 1000000000ULL) / 100000000ULL,
+                 sd_total / 1000000000ULL,
+                 (sd_total % 1000000000ULL) / 100000000ULL);
+    }
+
+    rrc_con_clear_line(rrc_con_get_rows() - 1);
+    rrc_con_cursor_seek_to(rrc_con_get_rows() - 1, rrc_con_get_cols() - strlen(storage_text));
+    printf("%s", storage_text);
 }
 
 void rrc_con_display_progress_bar()

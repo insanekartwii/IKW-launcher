@@ -27,6 +27,7 @@
 #define RRC_SETTINGSFILE_MY_STUFF_DEFAULT 0          /* disabled */
 #define RRC_SETTINGSFILE_SEPARATE_SAVEGAME_DEFAULT 0 /* disabled */
 #define RRC_SETTINGSFILE_AUTOUPDATE_DEFAULT 1        /* enabled */
+#define RRC_SETTINGSFILE_SD_ACCESS_LED_DEFAULT 1     /* enabled */
 #define RRC_SETTINGSFILE_PACK_ENABLED_VALUE 1        /* enabled */
 
 #define RRC_SETTINGSFILE_MY_STUFF_CTGP 1
@@ -47,6 +48,7 @@ struct rrc_settingsfile
     u32 my_stuff;
     u32 separate_savegame;
     u32 auto_update;
+    u32 sd_access_led;
 };
 
 /**

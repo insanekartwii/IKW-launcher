@@ -298,8 +298,8 @@ struct rrc_result rrc_update_extract_zip_archive()
             return rrc_result_create_error_misc_update("Empty file name in ZIP archive");
         }
 
-        unsigned long sd_free;
-        TRY(sd_get_free_space(&sd_free));
+        u64 sd_free;
+        TRY(sd_get_space(&sd_free, NULL));
 
         if (stat.size > sd_free)
         {
@@ -417,8 +417,8 @@ struct rrc_result rrc_update_do_updates_with_state(struct rrc_update_state *stat
             return rrc_result_create_error_curl(szres, "Failed to get update ZIP size");
         }
 
-        unsigned long sd_free;
-        TRY(sd_get_free_space(&sd_free));
+        u64 sd_free;
+        TRY(sd_get_space(&sd_free, NULL));
 
         if (zipsz > sd_free)
         {
@@ -540,22 +540,36 @@ struct rrc_result rrc_update_do_updates(void *xfb, int *count, bool *updates_ins
     int is_large = rrc_update_is_large(&state, &updates_size);
     RRC_ASSERT(is_large >= 0, "failed to get update size");
 
+    u64 sd_free;
+    u64 sd_total;
+    TRY(sd_get_space(&sd_free, &sd_total));
+
     if (is_large == 1)
     {
         char info_line1[128];
         char info_line2[128];
+        char info_line3[128];
+        char info_line4[128];
         snprintf(info_line1, 128, "There are %i updates available,", state.num_updates);
         snprintf(info_line2, 128, "totalling %iMB of data to download.", (int)(updates_size / 1000 / 1000));
+        snprintf(info_line3, 128, "SD space: %llu.%lluGB free / %llu.%lluGB total.",
+                 sd_free / 1000000000ULL,
+                 (sd_free % 1000000000ULL) / 100000000ULL,
+                 sd_total / 1000000000ULL,
+                 (sd_total % 1000000000ULL) / 100000000ULL);
+        snprintf(info_line4, 128, "The update needs temporary storage.");
         char *lines[] = {
             info_line1,
             info_line2,
+            info_line3,
+            info_line4,
             "This may take a long time!",
             "It may be quicker to reinstall the pack from your computer",
             "if you are playing on console.",
             ""
             "Would you like to continue?"};
 
-        enum rrc_prompt_result result = rrc_prompt_yes_no(xfb, lines, 6);
+        enum rrc_prompt_result result = rrc_prompt_yes_no(xfb, lines, 8);
         RRC_ASSERT(result != RRC_PROMPT_RESULT_ERROR, "failed to generate prompt");
         if (result == RRC_PROMPT_RESULT_NO)
         {

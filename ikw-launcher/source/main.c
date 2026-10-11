@@ -23,6 +23,7 @@
 #include <wiiuse/wpad.h>
 #include <unistd.h>
 #include <ogc/wiilaunch.h>
+#include <ogc/es.h>
 #include <string.h>
 #include <fat.h>
 #include <curl/curl.h>
@@ -60,7 +61,14 @@ int main(int argc, char **argv)
     // There are bugs in pulsar with USB/HIDv5 if the IOS version is 59, which HBC commonly boots programs with.
     // Use a version used by the game that is known to work with pulsar.
     // FIXME: try to use the disk's IOS version?
-    RRC_ASSERTEQ(IOS_ReloadIOS(37), 0, "Failed to reload IOS");
+    // Keep IOS 249 when the launcher is restarted after the user's IOS selection.
+    u32 ios249_tmd_size = 0;
+    bool ios249_installed = ES_GetStoredTMDSize(0x00000001000000F9ULL, &ios249_tmd_size) == 0;
+
+    if (IOS_GetVersion() != 249)
+    {
+        RRC_ASSERTEQ(IOS_ReloadIOS(37), 0, "Failed to reload IOS");
+    }
 
     rrc_shutdown_register_callbacks();
 
@@ -81,9 +89,69 @@ int main(int argc, char **argv)
 
     init_exception_handlers();
 
+    rrc_con_update("Initialise controllers", 0);
+    res = PAD_Init();
+    RRC_ASSERTEQ(res, 1, "PAD_Init");
+    res = WPAD_Init();
+    RRC_ASSERTEQ(res, WPAD_ERR_NONE, "WPAD_Init");
+
+    bool is_dolphin = ((*(volatile u32 *)0xCD006024 & 0xFF) == 0x01);
+
+    if (IOS_GetVersion() != 249 && ios249_installed && !is_dolphin)
+    {
+        char *ios_lines[] = {
+            "cIOS249 has been found on your console!",
+            "This launcher can run in either IOS 37 or cIOS 249.",
+            "This allows for the end user to bypass Korean Key and",
+            "allow burned games to work with the launcher.",
+            "If you do not need this, it is recommended to use",
+            "IOS 37 instead of cIOS 249 as cIOS 249 can cause",
+            "instability and USB devices like the USB GCN or",
+            "USB LAN adapters to not function reliably.",
+            "For the average user, the usage of IOS 37 is recommended.",
+            "Which IOS would you like to use?",
+            "",
+            ""
+        };
+        enum rrc_prompt_result ios_prompt = rrc_prompt_2_options(
+            xfb, ios_lines, 12, "IOS 37 (Recommended)", "cIOS 249 (Experimental)", RRC_PROMPT_RESULT_NO, RRC_PROMPT_RESULT_YES);
+
+        if (ios_prompt == RRC_PROMPT_RESULT_YES)
+        {
+            WPAD_Shutdown();
+            int reload_res = IOS_ReloadIOS(249);
+
+            rrc_shutdown_register_callbacks();
+            res = PAD_Init();
+            RRC_ASSERTEQ(res, 1, "PAD_Init after IOS reload");
+            res = WPAD_Init();
+            RRC_ASSERTEQ(res, WPAD_ERR_NONE, "WPAD_Init after IOS reload");
+
+            if (reload_res != 0)
+            {
+                char *reload_error_lines[] = {
+                    "Could not reload cIOS 249.",
+                    "Continuing with the current IOS 37."};
+                rrc_prompt_1_option(xfb, reload_error_lines, 2, "OK");
+            }
+        }
+        if (ios_prompt == RRC_PROMPT_RESULT_NO) {
+            WPAD_Shutdown();
+            RRC_ASSERTEQ(IOS_ReloadIOS(37), 0, "Failed to reload IOS 37");
+
+            rrc_shutdown_register_callbacks();
+            res = PAD_Init();
+            RRC_ASSERTEQ(res, 1, "PAD_Init after IOS reload");
+            res = WPAD_Init();
+            RRC_ASSERTEQ(res, WPAD_ERR_NONE, "WPAD_Init after IOS reload");
+        }
+    }
+
     // NOTE: We can't call any kind of printf before initialising libfat
     struct rrc_result sdinit_res = rrc_sd_init();
     rrc_result_error_check_error_fatal(sdinit_res);
+    rrc_con_set_sd_initialized(true);
+    rrc_con_display_version();
 
     errno = 0;
 
@@ -99,11 +167,6 @@ int main(int argc, char **argv)
         rrc_result_error_check_error_fatal(err);
     }
 
-    rrc_con_update("Initialise controllers", 0);
-    res = PAD_Init();
-    RRC_ASSERTEQ(res, 1, "PAD_Init");
-    res = WPAD_Init();
-    RRC_ASSERTEQ(res, WPAD_ERR_NONE, "WPAD_Init");
     bool first_open = false;
 
     FILE *afd = fopen("sd:/IKWv3/accept.txt", "r");
@@ -118,7 +181,9 @@ int main(int argc, char **argv)
             "This also applies to Insane Kart Wii itself.",
             "",
             "Use this software at your own risk, we are not responsible",
-            "for any damage that may occur while or after playing."};
+            "for any damage that may occur while or after playing.",
+            "",
+            ""};
 
         enum rrc_prompt_result result = rrc_prompt_2_options(xfb, lines, 11, "I Accept", "Exit", RRC_PROMPT_RESULT_OK, RRC_PROMPT_RESULT_CANCEL);
         if (result == RRC_PROMPT_RESULT_CANCEL)
@@ -277,6 +342,13 @@ int main(int argc, char **argv)
         usleep(RRC_WPAD_LOOP_TIMEOUT);
     }
 interrupt_loop_end:
+
+    // Disconnect as soon as launching is selected, leaving time for the game
+    // to observe the disconnect while its DOL and filesystem are loaded.
+    for (s32 chan = WPAD_CHAN_0; chan <= WPAD_CHAN_3; chan++)
+    {
+        WPAD_Disconnect(chan);
+    }
 
     rrc_con_clear(true);
 

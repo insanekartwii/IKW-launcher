@@ -24,7 +24,6 @@
 #include "loader.h"
 #include "binary_loader.h"
 #include "../sd.h"
-#include <sys/dirent.h>
 #include "../time.h"
 
 static char *bump_alloc_string(u32 *arena, const char *src)
@@ -35,12 +34,6 @@ static char *bump_alloc_string(u32 *arena, const char *src)
     memcpy(dest, src, src_len);
     dest[src_len] = '\0';
     return dest;
-}
-
-static const char **bump_alloc_string_array(u32 *arena, int count)
-{
-    *arena -= sizeof(char *) * count;
-    return (const char **)*arena;
 }
 
 bool should_register_patch_mystuff_aware(bool is_rr_mystuff, bool is_ctgpr_mystuff, bool is_rr_music_mystuff, bool is_ctgp_music_mystuff, int my_stuff_setting)
@@ -131,60 +124,6 @@ static struct rrc_result rrc_patch_loader_append_patches_for_option(
     return rrc_result_create_error_corrupted_rr_xml("option not found in xml");
 }
 
-// Only need to track immediate files in this folder.
-const char **rrc_riivo_patch_loader_get_entries_in_replaced_folder(u32 *arena, const char *folder_path, int *out_count)
-{
-    DIR *dir = opendir(folder_path);
-    if (!dir)
-    {
-        rrc_dbg_printf("Failed to open folder '%s' to read contents: %d\n", folder_path, errno);
-        *out_count = -1;
-        return NULL;
-    }
-
-    // Count entries first, so we only allocate space for the actual entries. Inefficient, but this is why we do it here and not in-game!
-    int count = 0;
-    struct dirent *entry;
-    while ((entry = readdir(dir)) != NULL)
-    {
-        if (entry->d_name[0] == '.' && entry->d_name[1] == '_')
-            continue;
-            
-        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0 || entry->d_type != DT_REG)
-            continue;
-
-        count++;
-    }
-
-    if (count >= MAX_FOLDER_FILES)
-    {
-        RRC_FATAL("Too many files in folder '%s' for Riivolution patch loader! Found %d files, but max is %d", folder_path, count + 1, MAX_FOLDER_FILES);
-    }
-
-    // Reset directory stream to read entries again for storing them.
-    rewinddir(dir);
-
-    const char **entries = bump_alloc_string_array(arena, count);
-    int i = 0;
-    while ((entry = readdir(dir)) != NULL)
-    {
-        if (entry->d_name[0] == '.' && entry->d_name[1] == '_')
-            continue;
-            
-        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0 || entry->d_type != DT_REG)
-            continue;
-
-        char *entry_path = bump_alloc_string(arena, entry->d_name);
-        entries[i] = entry_path;
-        i++;
-    }
-
-    closedir(dir);
-
-    *out_count = count;
-    return entries;
-}
-
 struct rrc_result rrc_riivo_patch_loader_parse(struct rrc_settingsfile *settings, u32 *mem1, u32 *mem2, struct parse_riivo_output *out)
 {
 #define PARSE_REQUIRED_ATTR(node, var, attr)                                                                    \
@@ -194,21 +133,7 @@ struct rrc_result rrc_riivo_patch_loader_parse(struct rrc_settingsfile *settings
         return rrc_result_create_error_corrupted_rr_xml("missing " attr " attribute on " #node " replacement"); \
     }
 
-    int total_cached_folder_files = 0;
-
     out->loader_pul_dest = NULL;
-
-    u32 mem1_orig = *mem1;
-    // Reserve space for file/folder replacements.
-    *mem1 -= sizeof(struct rrc_riivo_disc_replacement) * MAX_FILE_PATCHES;
-    *mem1 -= sizeof(struct rrc_riivo_disc);
-    struct rrc_riivo_disc *riivo_disc = (void *)*mem1;
-    riivo_disc->count = 0;
-    // Reserve space for memory patches. Note: they don't actually need to be reserved in MEM1,
-    // because it's only shortly needed in patch.c and never again at runtime.
-    *mem1 -= sizeof(struct rrc_riivo_memory_patch) * MAX_MEMORY_PATCHES;
-    out->mem_patches = (void *)*mem1;
-    out->mem_patches_count = 0;
 
     // Read the XML to extract all possible options for the entries.
     FILE *
@@ -228,6 +153,52 @@ struct rrc_result rrc_riivo_patch_loader_parse(struct rrc_settingsfile *settings
     TRY(rrc_patch_loader_append_patches_for_option(xml_top, options_index, "My Stuff", settings->my_stuff, active_patches, &active_patches_count));
     // Just always enable the pack, there is no setting for this.
     TRY(rrc_patch_loader_append_patches_for_option(xml_top, options_index, "Pack", RRC_SETTINGSFILE_PACK_ENABLED_VALUE, active_patches, &active_patches_count));
+
+    int replacement_capacity = 0;
+    for (mxml_node_t *patch = mxmlFindElement(xml_top, xml_top, "patch", NULL, NULL, MXML_DESCEND_FIRST); patch != NULL; patch = mxmlGetNextSibling(patch))
+    {
+        if (mxmlGetType(patch) != MXML_ELEMENT || strcmp(mxmlGetElement(patch), "patch") != 0)
+            continue;
+
+        const char *patch_id = mxmlElementGetAttr(patch, "id");
+        bool enabled = false;
+        for (int i = 0; i < active_patches_count; i++)
+        {
+            if (strcmp(active_patches[i], patch_id) == 0)
+            {
+                enabled = true;
+                break;
+            }
+        }
+        if (!enabled)
+            continue;
+
+        mxml_index_t *file_index = mxmlIndexNew(patch, "file", NULL);
+        while (mxmlIndexEnum(file_index) != NULL)
+            replacement_capacity++;
+        mxmlIndexDelete(file_index);
+
+        mxml_index_t *folder_index = mxmlIndexNew(patch, "folder", NULL);
+        while (mxmlIndexEnum(folder_index) != NULL)
+            replacement_capacity++;
+        mxmlIndexDelete(folder_index);
+    }
+
+    if (replacement_capacity > MAX_FILE_PATCHES)
+    {
+        return rrc_result_create_error_corrupted_rr_xml("Attempted to enable more than " RRC_STRINGIFY(MAX_FILE_PATCHES) " file/folder replacements!");
+    }
+
+    u32 mem1_orig = *mem1;
+    *mem1 -= sizeof(struct rrc_riivo_disc_replacement) * replacement_capacity;
+    *mem1 -= sizeof(struct rrc_riivo_disc);
+    struct rrc_riivo_disc *riivo_disc = (void *)*mem1;
+    riivo_disc->count = 0;
+    // Reserve space for memory patches. Note: they don't actually need to be reserved in MEM1,
+    // because it's only shortly needed in patch.c and never again at runtime.
+    *mem1 -= sizeof(struct rrc_riivo_memory_patch) * MAX_MEMORY_PATCHES;
+    out->mem_patches = (void *)*mem1;
+    out->mem_patches_count = 0;
 
     // NOTE: Separate Savegame is implemented manually rather than using the xml.
 
@@ -315,29 +286,13 @@ struct rrc_result rrc_riivo_patch_loader_parse(struct rrc_settingsfile *settings
                 char *disc_path_m1 = bump_alloc_string(mem1, disc_path_mxml);
                 char *external_path_m1 = bump_alloc_string(mem1, external_path_mxml);
 
-                int out_count = 0;
-                const char **folder_contents = rrc_riivo_patch_loader_get_entries_in_replaced_folder(mem1, external_path_mxml, &out_count);
-
-                total_cached_folder_files += out_count;
-                if (total_cached_folder_files >= GLOBAL_MAX_FOLDER_FILES)
-                {
-                    RRC_FATAL("Too many total files cached across all folder replacements for Riivolution patch loader! Found %d files, but max is %d", total_cached_folder_files, GLOBAL_MAX_FOLDER_FILES);
-                }
-
-                if (out_count == 0)
-                {
-                    // The folder exists but is empty, which is a bit suspicious for a folder replacement. Don't register it since it won't actually replace anything.
-                    rrc_dbg_printf("WARNING: folder replacement '%s' is empty!\n", external_path_mxml);
-                    continue;
-                }
-
                 struct rrc_riivo_disc_replacement *patch_dist = &riivo_disc->replacements[riivo_disc->count];
                 patch_dist->disc = disc_path_m1;
                 patch_dist->external = external_path_m1;
                 // We must set the correct type here since My Stuff should take priority.
                 patch_dist->type = (is_rr_music || is_ctgp_music) ? RRC_RIIVO_MY_STUFF_REPLACEMENT : RRC_RIIVO_FOLDER_REPLACEMENT;
-                patch_dist->folder_contents = folder_contents;
-                patch_dist->folder_contents_count = out_count;
+                patch_dist->folder_contents = NULL;
+                patch_dist->folder_contents_count = 0;
                 riivo_disc->count++;
             }
             mxmlIndexDelete(folder_repl_index);
@@ -364,28 +319,12 @@ struct rrc_result rrc_riivo_patch_loader_parse(struct rrc_settingsfile *settings
 
             char *external_path_m1 = bump_alloc_string(mem1, external_path_mxml);
 
-            int out_count = 0;
-            const char **folder_contents = rrc_riivo_patch_loader_get_entries_in_replaced_folder(mem1, external_path_mxml, &out_count);
-
-            total_cached_folder_files += out_count;
-            if (total_cached_folder_files >= GLOBAL_MAX_FOLDER_FILES)
-            {
-                RRC_FATAL("Too many total files cached across all folder replacements for Riivolution patch loader! Found %d files, but max is %d", total_cached_folder_files, GLOBAL_MAX_FOLDER_FILES);
-            }
-
-            if (out_count == 0)
-            {
-                // The folder exists but is empty, which is a bit suspicious for a folder replacement. Don't register it since it won't actually replace anything.
-                rrc_dbg_printf("WARNING: folder replacement '%s' is empty!\n", external_path_mxml);
-                continue;
-            }
-
             struct rrc_riivo_disc_replacement *patch_dist = &riivo_disc->replacements[riivo_disc->count];
             patch_dist->disc = NULL;
             patch_dist->external = external_path_m1;
             patch_dist->type = RRC_RIIVO_MY_STUFF_REPLACEMENT;
-            patch_dist->folder_contents = folder_contents;
-            patch_dist->folder_contents_count = out_count;
+            patch_dist->folder_contents = NULL;
+            patch_dist->folder_contents_count = 0;
             riivo_disc->count++;
         }
         else

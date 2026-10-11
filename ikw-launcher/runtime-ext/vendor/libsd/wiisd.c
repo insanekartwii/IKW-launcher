@@ -40,6 +40,10 @@
 #include <string.h>
 #include <string.h>
 #include <time.h>
+#include <bitflags.h>
+
+extern void OS_Fatal(uint32_t *foreground, uint32_t *background, const char *message);
+extern uint8_t rrc_bitflags;
 
 #define SDIO_HEAPSIZE				(5*1024)
  
@@ -113,6 +117,9 @@
 #define WRITE_BL_LEN				((uint8_t)(((__sd0_csd[12]&0x03)<<2)|((__sd0_csd[13]>>6)&0x03)))
 
 #define ATTRIBUTE_ALIGN(x) __attribute__((aligned(x)))
+#define HW_GPIOB_OUT (*(volatile uint32_t *)0xCD8000C0)
+#define HW_GPIOB_DIR (*(volatile uint32_t *)0xCD8000C4)
+#define SLOT_LED_MASK (1u << 5)
 // courtesy of Marcan
 #define STACK_ALIGN(type, name, cnt, alignment)		uint8_t _al__##name[((sizeof(type)*(cnt)) + (alignment) + (((sizeof(type)*(cnt))%(alignment)) > 0 ? ((alignment) - ((sizeof(type)*(cnt))%(alignment))) : 0))]; \
 													type *name = (type*)(((uint32_t)(_al__##name)) + ((alignment) - (((uint32_t)(_al__##name))&((alignment)-1))))
@@ -121,6 +128,18 @@
 void msleep(int ms);
 
 static uint8_t *rw_buffer = NULL;
+
+static void __sdio_set_access_led(bool enabled)
+{
+	if ((rrc_bitflags & RRC_BITFLAGS_SD_ACCESS_LED) == 0)
+		return;
+
+	uint32_t direction = HW_GPIOB_DIR;
+	HW_GPIOB_DIR = direction | SLOT_LED_MASK;
+
+	uint32_t output = HW_GPIOB_OUT;
+	HW_GPIOB_OUT = enabled ? (output | SLOT_LED_MASK) : (output & ~SLOT_LED_MASK);
+}
 
 struct _sdiorequest
 {
@@ -149,8 +168,53 @@ static int __sd0_initialized = 0;
 static int __sd0_sdhc = 0;
 //static uint8_t __sd0_csd[16];
 static uint8_t __sd0_cid[16];
+static uint8_t __sdio_expected_cid[16];
+static bool __sdio_expected_cid_valid = false;
+static bool __sdio_cid_mismatch = false;
+static bool __sdio_recovery_in_progress = false;
  
 static int __sdio_initialized = 0;
+
+bool sdio_IsInserted(void);
+bool sdio_Startup(void);
+bool sdio_Shutdown(void);
+
+static void __sdio_fatal(const char *message)
+{
+	uint32_t foreground = 0xFFFFFFFF;
+	uint32_t background = 0;
+	OS_Fatal(&foreground, &background, message);
+	while (1)
+		;
+}
+
+static void __sdio_fatal_if_removed(void)
+{
+	if (!sdio_IsInserted())
+		__sdio_fatal("SD card was removed during runtime.");
+}
+
+static void __sdio_remount(void)
+{
+	while (!sdio_IsInserted())
+		msleep(100);
+
+	if (!__sdio_expected_cid_valid)
+		__sdio_fatal("Cannot verify the SD card\nidentity after reinsertion.");
+
+	__sdio_cid_mismatch = false;
+	__sdio_recovery_in_progress = true;
+	sdio_Shutdown();
+	bool mounted = sdio_Startup();
+	__sdio_recovery_in_progress = false;
+
+	if (!mounted)
+	{
+		if (__sdio_cid_mismatch)
+			__sdio_fatal("A different SD card was inserted. Reinsert the original card to resume.");
+		__sdio_fatal("SD card is present, but remounting\nit failed.");
+	}
+}
  
 static char _sd0_fs[] ATTRIBUTE_ALIGN(32) = "/dev/sdio/slot0";
 
@@ -328,6 +392,25 @@ static int __sd0_select()
  
 	return ret;
 }
+
+static bool __sd0_validate_cid()
+{
+	uint8_t cid[16];
+	int ret = __sdio_sendcommand(
+		SDIO_CMD_SENDCID, SDIOCMD_TYPE_AC, SDIO_RESPOSNE_R2,
+		((uint32_t)__sd0_rca << 16), 0, 0, NULL, cid, sizeof(cid));
+
+	if (ret < 0)
+		return false;
+
+	if (memcmp(__sdio_expected_cid, cid, sizeof(__sdio_expected_cid)) != 0)
+	{
+		__sdio_cid_mismatch = true;
+		return false;
+	}
+
+	return true;
+}
  
 static int __sd0_deselect()
 {
@@ -383,12 +466,12 @@ static int __sd0_getcid()
 	return ret;
 }
 
-
 static	bool __sd0_initio()
 {
 	int ret;
 	int tries;
 	uint32_t status;
+	bool card_was_initialized;
 	struct _sdioresponse resp;
 
 	__sdio_resetcard();
@@ -396,8 +479,9 @@ static	bool __sd0_initio()
 	
 	if(!(status & SDIO_STATUS_CARD_INSERTED))
 		return false;
+	card_was_initialized = (status & SDIO_STATUS_CARD_INITIALIZED) != 0;
 
-	if(!(status & SDIO_STATUS_CARD_INITIALIZED))
+	if(!card_was_initialized)
 	{
 		// IOS doesn't like this card, so we need to convice it to accept it.
 
@@ -462,6 +546,16 @@ static	bool __sd0_initio()
 
 		ret = __sd0_getcid();
 		if(ret < 0) goto fail;
+		if (!__sdio_expected_cid_valid)
+		{
+			memcpy(__sdio_expected_cid, __sd0_cid, sizeof(__sdio_expected_cid));
+			__sdio_expected_cid_valid = true;
+		}
+		else if (memcmp(__sdio_expected_cid, __sd0_cid, sizeof(__sdio_expected_cid)) != 0)
+		{
+			__sdio_cid_mismatch = true;
+			return false;
+		}
 		ret = __sd0_getrca();
 		if(ret < 0) goto fail;
 	}
@@ -491,6 +585,8 @@ static	bool __sd0_initio()
 		return false;
 	}
 	__sd0_deselect();
+	if (__sdio_recovery_in_progress && card_was_initialized && !__sd0_validate_cid())
+		return false;
 
 	__sd0_initialized = 1;
 	return true;
@@ -556,13 +652,23 @@ bool sdio_Shutdown()
 bool sdio_ReadSectors(sec_t sector, sec_t numSectors,void* buffer)
 {
 	int ret;
+	int attempts = 0;
+	sec_t first_sector = sector;
+	sec_t first_num_sectors = numSectors;
 	uint8_t *ptr;
 	sec_t blk_off;
  
 	if(buffer==NULL) return false;
- 
+
+retry_read:
+	__sdio_set_access_led(true);
+	sector = first_sector;
+	numSectors = first_num_sectors;
 	ret = __sd0_select();
-	if(ret<0) return false;
+	if(ret<0) {
+		__sdio_set_access_led(false);
+		goto read_failed;
+	}
 
 	if((uint32_t)buffer & 0x1F) {
 		ptr = (uint8_t*)buffer;
@@ -587,20 +693,42 @@ bool sdio_ReadSectors(sec_t sector, sec_t numSectors,void* buffer)
 	}
 
 	__sd0_deselect();
+	__sdio_set_access_led(false);
+	if (ret < 0) goto read_failed;
  
-	return (ret>=0);
+	return true;
+
+read_failed:
+	if (attempts++ == 0)
+	{
+		__sdio_remount();
+		goto retry_read;
+	}
+	__sdio_set_access_led(false);
+	__sdio_fatal_if_removed();
+	return false;
 }
  
 bool sdio_WriteSectors(sec_t sector, sec_t numSectors,const void* buffer)
 {
 	int ret;
+	int attempts = 0;
+	sec_t first_sector = sector;
+	sec_t first_num_sectors = numSectors;
 	uint8_t *ptr;
 	uint32_t blk_off;
  
 	if(buffer==NULL) return false;
- 
+
+retry_write:
+	__sdio_set_access_led(true);
+	sector = first_sector;
+	numSectors = first_num_sectors;
 	ret = __sd0_select();
-	if(ret<0) return false;
+	if(ret<0) {
+		__sdio_set_access_led(false);
+		goto write_failed;
+	}
 
 	if((uint32_t)buffer & 0x1F) {
 		ptr = (uint8_t*)buffer;
@@ -625,8 +753,20 @@ bool sdio_WriteSectors(sec_t sector, sec_t numSectors,const void* buffer)
 	}
 
 	__sd0_deselect();
- 
-	return (ret>=0);
+	__sdio_set_access_led(false);
+	if (ret < 0) goto write_failed;
+
+	return true;
+
+write_failed:
+	if (attempts++ == 0)
+	{
+		__sdio_remount();
+		goto retry_write;
+	}
+	__sdio_set_access_led(false);
+	__sdio_fatal_if_removed();
+	return false;
 }
  
 bool sdio_ClearStatus()
@@ -636,8 +776,8 @@ bool sdio_ClearStatus()
  
 bool sdio_IsInserted()
 {
-	return ((__sdio_getstatus() & SDIO_STATUS_CARD_INSERTED) ==
-			SDIO_STATUS_CARD_INSERTED);
+	int status = __sdio_getstatus();
+	return status >= 0 && (status & SDIO_STATUS_CARD_INSERTED) != 0;
 }
 
 bool sdio_IsInitialized()

@@ -21,8 +21,10 @@
 #define RRC_RUNTIME_EXT_SD
 
 #include <types.h>
+#include <io/fat-sd.h>
 
 s32 rrc_rt_sd_init();
 bool rrc_rt_sd_file_exists(const char *path);
+int rrc_rt_sd_open(FILE_STRUCT *file_struct, const char *path, int flags);
 
 #endif

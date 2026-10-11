@@ -1,9 +1,4 @@
-/*
-    util.h - utility constants and macro definitions
-
-    Copyright (C) 2025  Retro Rewind Team
-
-    This program is free software: you can redistribute it and/or modify
+/*  This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
     the Free Software Foundation, either version 3 of the License, or
     (at your option) any later version.
@@ -104,9 +99,10 @@ void rrc_invalidate_cache(void *addr, u32 size);
 
 u32 align_down(u32 num, u32 align_as);
 u32 align_up(u32 num, u32 align_as);
-/*
-    Returns amount of free space on sd card as bytes.
+/**
+    Returns the free and total space on the SD card in bytes.
+    SD driver must be loaded for this to work.
 */
-struct rrc_result sd_get_free_space(unsigned long *res);
+struct rrc_result sd_get_space(u64 *free_space, u64 *total_space);
 
 #endif

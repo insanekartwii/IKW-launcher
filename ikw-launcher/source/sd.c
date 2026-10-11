@@ -18,24 +18,37 @@
 */
 
 #include <fat.h>
+#include <stdio.h>
 #include "unistd.h"
 
 #include "sd.h"
+#include "console.h"
 #include <sys/dirent.h>
 #include "update/update.h"
 
+static void rrc_sd_show_init_step(const char *message)
+{
+    rrc_con_clear_line(_RRC_ACTION_ROW);
+    rrc_con_cursor_seek_to(_RRC_ACTION_ROW, RRC_CON_EDGE_PAD);
+    printf("%s", message);
+    fflush(stdout);
+}
+
 struct rrc_result rrc_sd_init()
 {
+    rrc_sd_show_init_step("Mounting SD card...");
     if (!fatInitDefault())
     {
         return rrc_result_create_error_sdcard(EIO, "Couldn't mount the SD card - is it inserted?");
     }
 
+    rrc_sd_show_init_step("Checking SD card access...");
     if (chdir("sd:/") == -1)
     {
         return rrc_result_create_error_errno(errno, "Failed to set SD card root");
     }
 
+    rrc_sd_show_init_step("Testing SD card write access...");
     FILE *file = fopen(RRC_SD_TEST_FILE, "w+");
     if (!file)
     {
@@ -52,6 +65,7 @@ struct rrc_result rrc_sd_init()
     }
     fclose(file);
 
+    rrc_sd_show_init_step("Checking Insane Kart Wii installation...");
     file = fopen(RRC_VERSIONFILE, "r");
     if (file == NULL)
     {

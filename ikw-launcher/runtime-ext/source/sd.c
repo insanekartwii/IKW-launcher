@@ -24,7 +24,16 @@
 #include <io/fat-sd.h>
 #include <stdio.h>
 #include <errno.h>
+#include "sd.h"
 #include "util.h"
+
+int rrc_rt_sd_open(FILE_STRUCT *file_struct, const char *path, int flags)
+{
+    OS_Report("SD open attempt: '%s' (flags=0x%x)\n", path, flags);
+    int fd = SD_open(file_struct, path, flags);
+    OS_Report("SD open result: '%s' -> fd=%d (errno=%d)\n", path, fd, errno);
+    return fd;
+}
 
 s32 rrc_rt_sd_init()
 {
@@ -54,7 +63,7 @@ s32 rrc_rt_sd_init()
 bool rrc_rt_sd_file_exists(const char *path)
 {
     FILE_STRUCT fs;
-    s32 tmpfd = SD_open(&fs, path, O_RDONLY);
+    s32 tmpfd = rrc_rt_sd_open(&fs, path, O_RDONLY);
     if (tmpfd != -1)
     {
         RTE_DBG("DEBUG: File size of %s: %d\n", path, fs.filesize);
